@@ -16,3 +16,5 @@ adapter/jasmine.wrapper
 
 static/testacular.src.js
 static/testacular.wrapper
+
+bin/*.cmd

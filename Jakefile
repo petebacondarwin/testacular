@@ -42,15 +42,7 @@ namespace('test', function() {
   task('unit', function() {
     header('Running nodejs unit tests...');
 
-    var jasmine = child.spawn('jasmine-node', ['--coffee', 'test/unit'], ENV);
-
-    jasmine.stdout.pipe(process.stdout);
-    jasmine.stderr.pipe(process.stderr);
-
-    jasmine.on('exit', function(code) {
-      if (code) fail(plainError('Unit tests failed.'), code);
-      complete();
-    });
+    jake.exec('jasmine-node --coffee test/unit', complete, {printStdout: true, printStderr: true});
   }, ASYNC);
 
 
