@@ -1,7 +1,6 @@
 Q = require('q')
 glob = require('glob')
 globQ = Q.nbind(glob)
-console.dir globQ
 util = require('./util')
 log = require('./logger').create('file-list')
 
@@ -27,6 +26,7 @@ class FileList
 
   resolvePattern: (pattern, basePath)->
     if util.isUrlAbsolute(pattern)
+      console.log 'resolvePattern', Q.resolve
       Q.resolve([pattern])
     else
       globQ(pattern, cwd: basePath)

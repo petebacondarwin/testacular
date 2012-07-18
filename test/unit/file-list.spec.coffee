@@ -2,8 +2,13 @@
 # lib/file-list.js module
 #==============================================================================
 describe 'file-list', ->
+  rewire = require 'rewire'
+  Q = require('q')
   util = require '../test-util.js'
-  FileList = require('../../lib/file-list').FileList
+
+  FileListMod = rewire('../../lib/file-list')
+  FileList = FileListMod.FileList
+
   fileList = null
 
   beforeEach util.disableLogger
@@ -56,25 +61,33 @@ describe 'file-list', ->
       expect(fileList.includes.length).toEqual(2)
 
   describe 'resolvePattern', ->
-    it 'should return an absolute url unmodified', ->
-      pattern = 'http://www.google.com/some/path?seach=queryterms'
-      files = null
-      runs ()->
-        fileList.resolvePattern(pattern).then (results)->
-          files = results
-      waitsFor ()-> files?
-      runs ()->
-        expect(files[0]).toEqual pattern
+    globQ = null
+    resolve = null
 
-    it 'should return an array of js files from the lib folder for a path ../../lib/*.js', ->
+    beforeEach ->
+      # Mock up the globQ method
+      globQ = jasmine.createSpy('globQ')
+      FileListMod.__set__ 'globQ', globQ
+      # Mock up the Q.resolve method
+      resolve = jasmine.createSpy('Q.resolve')
+      FileListMod.__set__ 'Q', resolve: resolve
+
+    it 'should call Q.resolve with the pattern if the pattern is a url', ->
+      pattern = 'http://www.google.com/some/path?seach=queryterms'
+      promise = fileList.resolvePattern(pattern)
+      expect(globQ).not.toHaveBeenCalled()
+      expect(resolve).toHaveBeenCalledWith(pattern)
+
+    it 'should call globQ if given a non-url path ../../lib/*.js', ->
       pattern = '../../lib/*.js'
-      files = null
-      runs ()->
-        fileList.resolvePattern(pattern, __dirname).then (results)->
-          files = results
-      waitsFor ()-> files?
-      runs ()->
-        expect(files.length).toBeGreaterThan(0)
+      promise = fileList.resolvePattern(pattern, __dirname)
+      expect(globQ).toHaveBeenCalledWith(pattern, cwd: __dirname)
+      expect(resolve).not.toHaveBeenCalled()
+  
+      pattern = '/bin/non/existing.file'
+      promise = fileList.resolvePattern(pattern, __dirname)
+      expect(globQ).toHaveBeenCalledWith(pattern, __dirname)
+      expect(resolve).not.toHaveBeenCalled()
 
   describe 'subtraction', ->
     it 'should return empty set if set1 is empty', ->
@@ -104,3 +117,5 @@ describe 'file-list', ->
 
   describe 'getFiles', ->
     it 'should merge the includes files and remove the excluded files', ->
+
+
