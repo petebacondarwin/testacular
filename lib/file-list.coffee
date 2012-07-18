@@ -1,4 +1,7 @@
+Q = require('q')
 glob = require('glob')
+globQ = Q.nbind(glob)
+console.dir globQ
 util = require('./util')
 log = require('./logger').create('file-list')
 
@@ -23,8 +26,10 @@ class FileList
     return patterns
 
   resolvePattern: (pattern, basePath)->
-    return pattern if util.isUrlAbsolute(pattern)
-    return glob.sync(pattern, cwd: basePath)
+    if util.isUrlAbsolute(pattern)
+      Q.resolve([pattern])
+    else
+      globQ(pattern, cwd: basePath)
 
   merge: (fileLists)->
     files = []

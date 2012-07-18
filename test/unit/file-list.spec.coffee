@@ -58,13 +58,23 @@ describe 'file-list', ->
   describe 'resolvePattern', ->
     it 'should return an absolute url unmodified', ->
       pattern = 'http://www.google.com/some/path?seach=queryterms'
-      expect(fileList.resolvePattern pattern).toEqual(pattern)
+      files = null
+      runs ()->
+        fileList.resolvePattern(pattern).then (results)->
+          files = results
+      waitsFor ()-> files?
+      runs ()->
+        expect(files[0]).toEqual pattern
 
     it 'should return an array of js files from the lib folder for a path ../../lib/*.js', ->
       pattern = '../../lib/*.js'
-      basePath = __dirname
-      files = fileList.resolvePattern pattern, basePath
-      expect(files.length).toBeGreaterThan(0)
+      files = null
+      runs ()->
+        fileList.resolvePattern(pattern, __dirname).then (results)->
+          files = results
+      waitsFor ()-> files?
+      runs ()->
+        expect(files.length).toBeGreaterThan(0)
 
   describe 'subtraction', ->
     it 'should return empty set if set1 is empty', ->
@@ -94,4 +104,3 @@ describe 'file-list', ->
 
   describe 'getFiles', ->
     it 'should merge the includes files and remove the excluded files', ->
-      
