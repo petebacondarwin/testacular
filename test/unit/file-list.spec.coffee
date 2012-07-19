@@ -4,15 +4,19 @@
 describe 'file-list', ->
   rewire = require 'rewire'
   Q = require('q')
-  util = require '../test-util.js'
+  
 
-  FileListMod = rewire('../../lib/file-list')
-  FileList = FileListMod.FileList
+  require('../test-util.js').disableLogger()
 
-  fileList = null
+  FileListMod = FileList = fileList = null
 
-  beforeEach util.disableLogger
-  beforeEach -> fileList = new FileList
+  beforeEach ->
+    FileListMod = rewire('../../lib/file-list')
+    FileList = FileListMod.FileList
+    fileList = new FileList
+
+  afterEach ->
+    rewire.reset()
 
   #============================================================================
   # FileList.include
@@ -60,7 +64,7 @@ describe 'file-list', ->
       fileList = new FileList ['x/y/z', 'a/b/c']
       expect(fileList.includes.length).toEqual(2)
 
-  describe 'resolvePattern', ->
+  describe 'resolve', ->
     globQ = null
     resolve = null
 
@@ -68,28 +72,29 @@ describe 'file-list', ->
       # Mock up the globQ method
       globQ = jasmine.createSpy('globQ')
       FileListMod.__set__ 'globQ', globQ
+
       # Mock up the Q.resolve method
       resolve = jasmine.createSpy('Q.resolve')
       FileListMod.__set__ 'Q', resolve: resolve
 
     it 'should call Q.resolve with the pattern if the pattern is a url', ->
       pattern = 'http://www.google.com/some/path?seach=queryterms'
-      promise = fileList.resolvePattern(pattern)
+      promise = fileList.resolve(pattern)
       expect(globQ).not.toHaveBeenCalled()
-      expect(resolve).toHaveBeenCalledWith(pattern)
+      expect(resolve).toHaveBeenCalledWith([pattern])
 
     it 'should call globQ if given a non-url path ../../lib/*.js', ->
       pattern = '../../lib/*.js'
-      promise = fileList.resolvePattern(pattern, __dirname)
+      promise = fileList.resolve(pattern, __dirname)
       expect(globQ).toHaveBeenCalledWith(pattern, cwd: __dirname)
       expect(resolve).not.toHaveBeenCalled()
   
       pattern = '/bin/non/existing.file'
-      promise = fileList.resolvePattern(pattern, __dirname)
-      expect(globQ).toHaveBeenCalledWith(pattern, __dirname)
+      promise = fileList.resolve(pattern, __dirname)
+      expect(globQ).toHaveBeenCalledWith(pattern, cwd: __dirname)
       expect(resolve).not.toHaveBeenCalled()
 
-  describe 'subtraction', ->
+  describe 'subtract', ->
     it 'should return empty set if set1 is empty', ->
       expect(fileList.subtract([], []).length).toEqual(0)
       expect(fileList.subtract([], ['a']).length).toEqual(0)
@@ -117,5 +122,14 @@ describe 'file-list', ->
 
   describe 'getFiles', ->
     it 'should merge the includes files and remove the excluded files', ->
-
-
+      results = null
+      runs ()->
+        fileList.include ['../../lib/config.js','../../lib/*.js', '../../lib/*.coffee']
+        fileList.exclude ['../../lib/file-list.js']
+        fileList.getFiles(__dirname).then (files)-> results = files
+      waitsFor ()->
+        results?
+      runs ()->
+        expect(results.length).not.toEqual 0
+        expect(results).toContain('../../lib/config.js')
+        expect(results).not.toContain('../../lib/file-list.js')
