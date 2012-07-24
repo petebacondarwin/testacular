@@ -15,6 +15,8 @@ class FileList
   clear: ()->
     @includes = []
     @excludes = []
+    @includesMatchers = []
+    @excludesMatchers = []
 
   resetPromises: ()->
     @files = null
@@ -25,6 +27,7 @@ class FileList
     log.info('Including patterns:', patterns) if patterns.length > 0
     for pattern in patterns
       @includes.push pattern
+      @includesMatchers[pattern] = new minimatch.Minimatch(pattern)
     @resetPromises()
     return this
 
@@ -33,10 +36,11 @@ class FileList
     log.info('Excluding patterns:', patterns) if patterns.length > 0
     for pattern in patterns
       @excludes.push pattern
+      @excludesMatchers[pattern] = new minimatch.Minimatch(pattern)
     @resetPromises()
     return this
 
-  resolve: (pattern, basePath)->
+  resolvePattern: (pattern, basePath)->
     if util.isUrlAbsolute(pattern)
       Q.resolve([pattern])
     else
@@ -52,29 +56,33 @@ class FileList
   subtract: (set1, set2)->
     item for item in set1 when item not in set2
 
-  resolveFiles: (basePath)->
-    includedFileListPromises = (@resolve(pattern, basePath) for pattern in @includes)
-    excludedFileListPromises = (@resolve(pattern, basePath) for pattern in @excludes)
+  resolve: (basePath)->
+    includedFileListPromises = (@resolvePattern(pattern, basePath) for pattern in @includes)
+    excludedFileListPromises = (@resolvePattern(pattern, basePath) for pattern in @excludes)
 
     includedFilesPromise = Q.all(includedFileListPromises).then @merge
     excludedFilesPromise = Q.all(excludedFileListPromises).then @merge
 
     @files = Q.all([includedFilesPromise, excludedFilesPromise]).spread @subtract
+    @folders = @files.then (files)->
+      folders = []
+      for file in files
+        folder = path.dirname(file)
+        folders.push(folder) if folder not in folders
+      return folders
+    return @files
 
-  resolveFolders: (basePath)->
-    @files ?= @resolveFiles(basePath)
-    @folders = []
-    for file in @files
-      folder = path.dirname(file)
-      @folders.push(folder) if folder not in folders
-    return @folders
-    
-  match: (filePath, basePath)->
-    relPath = path.relative(filePath, basePath)
-    for patterns in @excludes
-      return false if minimatch(relPath, pattern)
-    for patterns in @includes
-      return true if minimatch(relPath, pattern)
+  getFilesPromise: ()->
+    @files
+
+  getFoldersPromise: ()->
+    @folders
+
+  match: (filePath)->
+    for matcher in @excludesMatchers
+      return false if matcher.match(filePath)
+    for matcher in @includesMatchers
+      return true if matcher.match(filePath)
     return false
 
 exports.FileList = FileList

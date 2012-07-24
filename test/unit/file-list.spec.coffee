@@ -79,18 +79,18 @@ describe 'file-list', ->
 
     it 'should call Q.resolve with the pattern if the pattern is a url', ->
       pattern = 'http://www.google.com/some/path?seach=queryterms'
-      promise = fileList.resolve(pattern)
+      promise = fileList.resolvePattern(pattern)
       expect(globQ).not.toHaveBeenCalled()
       expect(resolve).toHaveBeenCalledWith([pattern])
 
     it 'should call globQ if given a non-url path ../../lib/*.js', ->
       pattern = '../../lib/*.js'
-      promise = fileList.resolve(pattern, __dirname)
+      promise = fileList.resolvePattern(pattern, __dirname)
       expect(globQ).toHaveBeenCalledWith(pattern, cwd: __dirname)
       expect(resolve).not.toHaveBeenCalled()
   
       pattern = '/bin/non/existing.file'
-      promise = fileList.resolve(pattern, __dirname)
+      promise = fileList.resolvePattern(pattern, __dirname)
       expect(globQ).toHaveBeenCalledWith(pattern, cwd: __dirname)
       expect(resolve).not.toHaveBeenCalled()
 
@@ -120,16 +120,39 @@ describe 'file-list', ->
       expect(fileList.merge([])).toEqual([])
       expect(fileList.merge([[],[],[],[]])).toEqual([])
 
-  describe 'getFiles', ->
+  describe 'resolve', ->
     it 'should merge the includes files and remove the excluded files', ->
       results = null
       runs ()->
         fileList.include ['../../lib/config.js','../../lib/*.js', '../../lib/*.coffee']
         fileList.exclude ['../../lib/file-list.js']
-        fileList.getFiles(__dirname).then (files)-> results = files
+        fileList.resolve(__dirname).then (files)-> results = files
       waitsFor ()->
         results?
       runs ()->
         expect(results.length).not.toEqual 0
         expect(results).toContain('../../lib/config.js')
         expect(results).not.toContain('../../lib/file-list.js')
+
+  describe 'getFoldersPromise', ->
+    it 'should return a unique set of containing folders for each matched file', ->
+      results = null
+      runs ()->
+        fileList.include ['../../lib/config.js','../../lib/*.js', '../../lib/*.coffee']
+        fileList.exclude ['../../lib/file-list.js']
+        fileList.resolve(__dirname)
+        fileList.getFoldersPromise().then (folders)->
+          results = folders
+      waitsFor ()->
+        results?
+      , 1000
+      runs ()->
+        expect(results.length).toEqual 1
+        expect(results).toContain('../../lib')
+        expect(results).not.toContain('../../lib/config.js')
+
+  describe 'match', ->
+    it 'should return true if a file path matches an include pattern', ->
+      fileList.include '../../lib/config.js'
+      result = fileList.match('../../lib/config.js')
+      expect(result).toBe(true)
